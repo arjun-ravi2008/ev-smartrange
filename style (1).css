@@ -1,0 +1,141 @@
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    font-family: Arial, sans-serif;
+    background: #f0f7f5;
+    color: #18332d;
+}
+
+header {
+    background: #123f35;
+    color: white;
+    text-align: center;
+    padding: 30px 15px;
+}
+
+header h1 {
+    font-size: 32px;
+    margin-bottom: 10px;
+}
+
+header p {
+    font-size: 15px;
+}
+
+.welcome {
+    max-width: 750px;
+    margin: 90px auto;
+    padding: 45px 25px;
+    text-align: center;
+    background: white;
+    border-radius: 15px;
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.08);
+}
+
+.welcome h2 {
+    font-size: 28px;
+    margin-bottom: 18px;
+}
+
+.welcome p {
+    font-size: 17px;
+    line-height: 1.6;
+    margin-bottom: 25px;
+}
+
+button {
+    background: #168568;
+    color: white;
+    border: none;
+    padding: 14px 28px;
+    border-radius: 8px;
+    font-size: 16px;
+    cursor: pointer;
+}
+
+button:hover {
+    background: #105e4a;
+}
+
+/* EV SmartRange Dashboard */
+
+nav {
+    background: #1b5749;
+    padding: 15px;
+    display: flex;
+    justify-content: center;
+    gap: 15px;
+    flex-wrap: wrap;
+}
+
+nav button {
+    background: white;
+    color: #164c3e;
+    padding: 12px 20px;
+    border-radius: 8px;
+    font-weight: bold;
+}
+
+nav button:hover {
+    background: #c9eee1;
+}
+
+.welcome, .panel {
+    max-width: 850px;
+    margin: 50px auto;
+    padding: 35px;
+    background: white;
+    border-radius: 15px;
+    box-shadow: 0 4px 15px rgba(0,0,0,0.08);
+}
+
+.welcome h2, .panel h2 {
+    color: #164c3e;
+    margin-bottom: 18px;
+}
+
+.welcome p, .panel p {
+    line-height: 1.7;
+    margin-bottom: 12px;
+}
+
+[hidden] {
+    display: none !important;
+}
+
+/* Trip History */
+
+.table-wrap {
+    overflow-x: auto;
+    margin-bottom: 20px;
+}
+
+table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+th, td {
+    padding: 12px 10px;
+    text-align: left;
+    border-bottom: 1px solid #c9eee1;
+    white-space: nowrap;
+}
+
+th {
+    background: #1b5749;
+    color: white;
+}
+
+tbody tr:hover {
+    background: #f0f7f5;
+}
+
+.saved-note {
+    color: #168568;
+    font-size: 14px;
+}

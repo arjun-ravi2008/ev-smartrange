@@ -1,0 +1,339 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>EV SmartRange</title>
+    <link rel="stylesheet" href="style.css">
+    <style>
+        label { display: block; margin-top: 15px; font-weight: bold; }
+        input { display: block; width: 100%; max-width: 320px; padding: 10px; margin-top: 6px; font-size: 16px; }
+        .panel button { margin-top: 20px; }
+    </style>
+</head>
+<body>
+
+    <header>
+        <h1>EV SmartRange</h1>
+        <p>EV Range Prediction and Smart Charging Assistant</p>
+    </header>
+
+    <nav>
+        <button onclick="showSection('dashboard')">Dashboard</button>
+        <button onclick="showSection('range')">Range Prediction</button>
+        <button onclick="showSection('logtrip')">Log a Trip</button>
+        <button onclick="showSection('mileage')">My Mileage</button>
+        <button onclick="showSection('charging')">Smart Charging</button>
+        <button onclick="showSection('history')">Trip History</button>
+    </nav>
+
+    <main>
+
+        <!-- DASHBOARD -->
+        <section id="dashboard" class="welcome">
+            <h2>Welcome to EV SmartRange!</h2>
+            <p>Plan your journey with confidence.</p>
+            <p>Estimate your EV range and learn your car's real mileage from your own trips.</p>
+        </section>
+
+        <!-- RANGE PREDICTION -->
+        <section id="range" class="panel" hidden>
+            <h2>EV Range Prediction</h2>
+
+            <label for="model">Car Model</label>
+            <input type="text" id="model" placeholder="Example: Tata Nexon EV">
+
+            <label for="capacity">Battery Capacity (kWh)</label>
+            <input type="number" id="capacity" placeholder="Example: 60" min="0.01" step="any">
+
+            <label for="battery">Current Battery Level (%)</label>
+            <input type="number" id="battery" placeholder="Example: 75" min="0" max="100" step="any">
+
+            <label for="consumption">Energy Consumption (kWh/km)</label>
+            <input type="number" id="consumption" placeholder="Example: 0.15" min="0.001" step="any">
+
+            <button onclick="calculateRange()">Calculate Range</button>
+
+            <div id="rangeResult" aria-live="polite"></div>
+        </section>
+
+        <!-- LOG A TRIP -->
+        <section id="logtrip" class="panel" hidden>
+            <h2>Log a Finished Trip</h2>
+            <p>Enter the battery level before and after your drive. The app works out your car's real consumption.</p>
+
+            <label for="logModel">Car Model</label>
+            <input type="text" id="logModel" placeholder="Example: Tata Nexon EV">
+
+            <label for="logCapacity">Battery Capacity (kWh)</label>
+            <input type="number" id="logCapacity" placeholder="Example: 40" step="any">
+
+            <label for="logStart">Battery at Start (%)</label>
+            <input type="number" id="logStart" placeholder="Example: 80" step="any">
+
+            <label for="logEnd">Battery at End (%)</label>
+            <input type="number" id="logEnd" placeholder="Example: 60" step="any">
+
+            <label for="logDistance">Distance Driven (km)</label>
+            <input type="number" id="logDistance" placeholder="Example: 100" step="any">
+
+            <button onclick="logTrip()">Save Trip</button>
+
+            <div id="logResult" aria-live="polite"></div>
+        </section>
+
+        <!-- MY MILEAGE -->
+        <section id="mileage" class="panel" hidden>
+            <h2>My Car's Mileage</h2>
+            <p>This is built only from the trips you have logged for the car.</p>
+
+            <label for="mileageModel">Car Model</label>
+            <input type="text" id="mileageModel" placeholder="Example: Tata Nexon EV">
+
+            <button onclick="loadMileage()">Show My Mileage</button>
+
+            <div id="mileageResult" aria-live="polite"></div>
+        </section>
+
+        <!-- SMART CHARGING -->
+        <section id="charging" class="panel" hidden>
+            <h2>Smart Charging Assistant</h2>
+
+            <label for="chargeCapacity">Battery Capacity (kWh)</label>
+            <input type="number" id="chargeCapacity" placeholder="Example: 40" step="any">
+
+            <label for="currentLevel">Current Battery Level (%)</label>
+            <input type="number" id="currentLevel" placeholder="Example: 20" step="any">
+
+            <label for="targetLevel">Target Battery Level (%)</label>
+            <input type="number" id="targetLevel" placeholder="Example: 80" step="any">
+
+            <label for="chargerPower">Charger Power (kW)</label>
+            <input type="number" id="chargerPower" placeholder="Example: 7" step="any">
+
+            <button onclick="calculateCharging()">Calculate Charging Time</button>
+
+            <div id="chargingResult" aria-live="polite"></div>
+        </section>
+
+        <!-- TRIP HISTORY -->
+        <section id="history" class="panel" hidden>
+            <h2>Trip History</h2>
+
+            <div id="historyList" aria-live="polite"></div>
+
+            <button id="clearHistoryButton" onclick="clearHistory()">Clear History</button>
+        </section>
+
+    </main>
+
+    <script>
+        // Shows one section and hides the others
+        function showSection(id) {
+            document.querySelectorAll("main section").forEach(function (section) {
+                section.hidden = true;
+            });
+            document.getElementById(id).hidden = false;
+
+            if (id === "history") {
+                loadHistory();
+            }
+        }
+
+        // Reads an input box and makes it safe for a web address
+        function inputValue(id) {
+            return encodeURIComponent(document.getElementById(id).value.trim());
+        }
+
+        // Asks the C server for data and returns its JSON reply
+        async function callServer(url) {
+            const response = await fetch(url);
+            const data = await response.json();
+
+            if (!response.ok) {
+                throw new Error(data.error || "Something went wrong.");
+            }
+            return data;
+        }
+
+        // Explains how the measured consumption compares with the typed value
+        function gapText(measured, entered) {
+            const percent = Math.round(Math.abs((measured - entered) / entered) * 100);
+
+            if (percent < 5) {
+                return "Your measured figure is close to the value you entered.";
+            }
+            if (measured > entered) {
+                return "Your car uses about " + percent + "% more energy than the value you entered.";
+            }
+            return "Your car uses about " + percent + "% less energy than the value you entered.";
+        }
+
+        // RANGE PREDICTION
+        async function calculateRange() {
+            const result = document.getElementById("rangeResult");
+            const entered = Number(document.getElementById("consumption").value);
+            const url = "/range?model=" + inputValue("model") +
+                        "&capacity=" + inputValue("capacity") +
+                        "&battery=" + inputValue("battery") +
+                        "&consumption=" + inputValue("consumption");
+
+            try {
+                const d = await callServer(url);
+
+                let html = `
+                    <h3>Range Prediction Results</h3>
+                    <p>Car: <strong>${d.model}</strong></p>
+                    <p>Available Energy: <strong>${d.energy.toFixed(2)} kWh</strong></p>
+                    <p>Estimated Range: <strong>${d.range.toFixed(2)} km</strong></p>
+                    <p>Safe Driving Range: <strong>${d.safeRange.toFixed(2)} km</strong></p>
+                    <p class="saved-note">${d.saved ? "Saved to Trip History." : "Could not save to Trip History."}</p>`;
+
+                if (d.tripsUsed > 0) {
+                    html += `
+                        <h3>Personalised for your car</h3>
+                        <p>Based on <strong>${d.tripsUsed}</strong> logged trip(s) for ${d.model}.</p>
+                        <p>Measured consumption: <strong>${d.personalConsumption.toFixed(3)} kWh/km</strong></p>
+                        <p>Personal range: <strong>${d.personalRange.toFixed(2)} km</strong></p>
+                        <p>Personal safe range: <strong>${d.personalSafeRange.toFixed(2)} km</strong></p>
+                        <p class="saved-note">${gapText(d.personalConsumption, entered)}</p>`;
+                } else {
+                    html += `<p class="saved-note">No logged trips for this car yet. Use "Log a Trip" to get a personalised figure.</p>`;
+                }
+
+                result.innerHTML = html;
+            } catch (error) {
+                result.textContent = error.message;
+            }
+        }
+
+        // LOG A FINISHED TRIP
+        async function logTrip() {
+            const result = document.getElementById("logResult");
+            const url = "/logtrip?model=" + inputValue("logModel") +
+                        "&capacity=" + inputValue("logCapacity") +
+                        "&start=" + inputValue("logStart") +
+                        "&end=" + inputValue("logEnd") +
+                        "&distance=" + inputValue("logDistance");
+
+            try {
+                const d = await callServer(url);
+
+                result.innerHTML = `
+                    <h3>Trip Saved</h3>
+                    <p>Energy used: <strong>${d.usedEnergy.toFixed(2)} kWh</strong></p>
+                    <p>Measured consumption: <strong>${d.actualConsumption.toFixed(3)} kWh/km</strong></p>
+                    <p>Distance per kWh: <strong>${d.kmPerKwh.toFixed(2)} km/kWh</strong></p>
+                    <p class="saved-note">${d.tripsUsed} logged trip(s) now used for ${d.model}. Average: ${d.personalConsumption.toFixed(3)} kWh/km.</p>`;
+            } catch (error) {
+                result.textContent = error.message;
+            }
+        }
+
+        // MY MILEAGE
+        async function loadMileage() {
+            const result = document.getElementById("mileageResult");
+
+            try {
+                const d = await callServer("/mileage?model=" + inputValue("mileageModel"));
+
+                if (d.tripsUsed === 0) {
+                    result.innerHTML = `<p>No logged trips for <strong>${d.model}</strong> yet. Use "Log a Trip" first.</p>`;
+                    return;
+                }
+
+                result.innerHTML = `
+                    <h3>Personalised Mileage for ${d.model}</h3>
+                    <p>Trips used: <strong>${d.tripsUsed}</strong></p>
+                    <p>Total distance logged: <strong>${d.totalKm.toFixed(2)} km</strong></p>
+                    <p>Measured consumption: <strong>${d.personalConsumption.toFixed(3)} kWh/km</strong></p>
+                    <p>Distance per kWh: <strong>${d.kmPerKwh.toFixed(2)} km/kWh</strong></p>`;
+            } catch (error) {
+                result.textContent = error.message;
+            }
+        }
+
+        // SMART CHARGING
+        async function calculateCharging() {
+            const result = document.getElementById("chargingResult");
+            const url = "/charging?capacity=" + inputValue("chargeCapacity") +
+                        "&current=" + inputValue("currentLevel") +
+                        "&target=" + inputValue("targetLevel") +
+                        "&power=" + inputValue("chargerPower");
+
+            try {
+                const data = await callServer(url);
+
+                result.innerHTML = `
+                    <h3>Charging Estimate</h3>
+                    <p>Energy Needed: <strong>${data.energyNeeded.toFixed(2)} kWh</strong></p>
+                    <p>Estimated Charging Time: <strong>${data.hours} hours ${data.minutes} minutes</strong></p>`;
+            } catch (error) {
+                result.textContent = error.message;
+            }
+        }
+
+        // TRIP HISTORY
+        async function loadHistory() {
+            const list = document.getElementById("historyList");
+            const clearButton = document.getElementById("clearHistoryButton");
+
+            try {
+                const trips = await callServer("/history");
+
+                if (trips.length === 0) {
+                    list.innerHTML = "<p>No trips yet. Calculate a range first.</p>";
+                    clearButton.hidden = true;
+                    return;
+                }
+
+                clearButton.hidden = false;
+
+                const rows = trips.map(function (trip) {
+                    const measured = trip.actual > 0 ? trip.actual.toFixed(3) + " kWh/km" : "-";
+                    return `
+                        <tr>
+                            <td>${trip.date}</td>
+                            <td>${trip.model}</td>
+                            <td>${trip.battery}% of ${trip.capacity} kWh</td>
+                            <td>${trip.consumption} kWh/km</td>
+                            <td>${measured}</td>
+                            <td>${trip.range} km</td>
+                            <td>${trip.safeRange} km</td>
+                        </tr>`;
+                }).join("");
+
+                list.innerHTML = `
+                    <div class="table-wrap">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>Date</th>
+                                    <th>Car</th>
+                                    <th>Battery</th>
+                                    <th>Estimated Consumption</th>
+                                    <th>Measured Consumption</th>
+                                    <th>Estimated Range</th>
+                                    <th>Safe Range</th>
+                                </tr>
+                            </thead>
+                            <tbody>${rows}</tbody>
+                        </table>
+                    </div>`;
+            } catch (error) {
+                list.textContent = error.message;
+            }
+        }
+
+        // Deletes all saved trips after asking the user
+        async function clearHistory() {
+            if (!confirm("Delete all saved trips?")) {
+                return;
+            }
+            await callServer("/clear");
+            loadHistory();
+        }
+    </script>
+
+</body>
+</html>
